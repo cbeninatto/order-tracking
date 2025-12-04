@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard de Pedidos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    header {
+      padding: 16px 24px;
+      background: #020617;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      margin: 0;
+    }
+
+    header span {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    main {
+      padding: 16px 24px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .filters, .summary {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .filters {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #1f2937;
+    }
+
+    .filter-group label {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .filter-group input,
+    .filter-group select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.85rem;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      cursor: pointer;
+    }
+
+    .filter-row button {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .filter-row button:hover {
+      background: #1f2937;
+    }
+
+    .summary {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid #1f2937;
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+
+    .card-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .card-subvalue {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.8rem;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+    }
+
+    thead {
+      background: #020617;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #111827;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #9ca3af;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #020617;
+    }
+
+    tbody tr:hover {
+      background: #111827;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid #374151;
+    }
+
+    .status-open {
+      border-color: #f59e0b;
+      color: #facc15;
+    }
+
+    .status-complete {
+      border-color: #22c55e;
+      color: #4ade80;
+    }
+
+    .status-other {
+      border-color: #6b7280;
+      color: #e5e7eb;
+    }
+
+    .pending-badge {
+      font-size: 0.7rem;
+      color: #f97316;
+      margin-left: 4px;
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: #6b7280;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #111827;
+      border: 1px solid #374151;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dashboard de Pedidos</h1>
+      <span>Monitoramento e filtros rápidos com base no orders.csv</span>
+    </div>
+    <div class="tag">Cook Street · Internal</div>
+  </header>
+
+  <main>
+    <section class="filters">
+      <div class="filter-group">
+        <label for="pedidoFilter">Pedido(s)</label>
+        <input id="pedidoFilter" type="text" placeholder="Ex: 4501644489, 4501765866" />
+      </div>
+
+      <div class="filter-group">
+        <label for="marcaFilter">Marca</label>
+        <select id="marcaFilter">
+          <option value="">Todas</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="destinoFilter">Destino</label>
+        <select id="destinoFilter">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="statusFilter">Status</label>
+        <select id="statusFilter">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>&nbsp;</label>
+        <div class="filter-row">
+          <label>
+            <input type="checkbox" id="onlyPending" />
+            Somente pendentes (Qtd Faturado &lt; Qtd Pedido)
+          </label>
+          <button id="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="card">
+        <div class="card-title">Total de pedidos (filtrados)</div>
+        <div class="card-value" id="totalOrders">-</div>
+        <div class="card-subvalue" id="totalOrdersInfo"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Volume pedido</div>
+        <div class="card-value" id="sumQtdPedido">-</div>
+        <div class="card-subvalue">Somatório de Qtd Pedido</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Volume faturado</div>
+        <div class="card-value" id="sumQtdFaturado">-</div>
+        <div class="card-subvalue">Somatório de Qtd Faturado</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Saldo a faturar</div>
+        <div class="card-value" id="sumSaldo">-</div>
+        <div class="card-subvalue" id="pendingInfo"></div>
+      </div>
+    </section>
+
+    <section>
+      <table id="ordersTable">
+        <thead>
+          <tr>
+            <th>Pedido</th>
+            <th>Emissão</th>
+            <th>Marca</th>
+            <th>Fabricante</th>
+            <th>Destino</th>
+            <th>Status</th>
+            <th>Qtd Pedido</th>
+            <th>Qtd Faturado</th>
+            <th>Saldo</th>
+            <th>Alteração</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- linhas serão preenchidas via JS -->
+        </tbody>
+      </table>
+      <div class="footer-note" id="footerNote"></div>
+    </section>
+  </main>
+
+  <script>
+    const COLUMNS = [
+      "Pedido",
+      "Emissao",
+      "Marca",
+      "Fabricante",
+      "Destino",
+      "Status",
+      "Qtd_Pedido",
+      "Qtd_Faturado",
+      "Alteracao"
+    ];
+
+    let allOrders = [];
+    let filteredOrders = [];
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length <= 1) return [];
+
+      const headers = lines[0].split(",").map(h => h.trim());
+      const rows = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const parts = line.split(",");
+        const row = {};
+        headers.forEach((h, idx) => {
+          row[h] = (parts[idx] || "").trim();
+        });
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    function toInt(value) {
+      if (!value) return 0;
+      const v = parseInt(value.toString().replace(/\D/g, ""), 10);
+      return isNaN(v) ? 0 : v;
+    }
+
+    function loadOrders() {
+      fetch("orders.csv?_=" + Date.now())
+        .then(resp => {
+          if (!resp.ok) {
+            throw new Error("Não foi possível carregar orders.csv");
+          }
+          return resp.text();
+        })
+        .then(text => {
+          const rows = parseCSV(text);
+          allOrders = rows.map(row => {
+            const obj = {};
+            obj.Pedido       = row["Pedido"] || "";
+            obj.Emissao      = row["Emissao"] || "";
+            obj.Marca        = row["Marca"] || "";
+            obj.Fabricante   = row["Fabricante"] || "";
+            obj.Destino      = row["Destino"] || "";
+            obj.Status       = row["Status"] || "";
+            obj.Qtd_Pedido   = row["Qtd_Pedido"] || "";
+            obj.Qtd_Faturado = row["Qtd_Faturado"] || "";
+            obj.Alteracao    = row["Alteracao"] || "";
+            return obj;
+          });
+
+          populateFilterOptions();
+          applyFilters();
+        })
+        .catch(err => {
+          console.error(err);
+          document.getElementById("footerNote").textContent =
+            "Erro ao carregar orders.csv. Verifique se o arquivo está na mesma pasta do dashboard.html.";
+        });
+    }
+
+    function populateFilterOptions() {
+      const marcaSet = new Set();
+      const destinoSet = new Set();
+      const statusSet = new Set();
+
+      allOrders.forEach(o => {
+        if (o.Marca) marcaSet.add(o.Marca);
+        if (o.Destino) destinoSet.add(o.Destino);
+        if (o.Status) statusSet.add(o.Status);
+      });
+
+      function fillSelect(selectId, valuesSet) {
+        const select = document.getElementById(selectId);
+        const current = select.value;
+        select.innerHTML = "<option value=\"\">Todas/Todos</option>";
+        Array.from(valuesSet)
+          .sort((a, b) => a.localeCompare(b, "pt-BR"))
+          .forEach(v => {
+            const opt = document.createElement("option");
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+          });
+        if (current) select.value = current;
+      }
+
+      fillSelect("marcaFilter", marcaSet);
+      fillSelect("destinoFilter", destinoSet);
+
+      const statusSelect = document.getElementById("statusFilter");
+      const currentStatus = statusSelect.value;
+      statusSelect.innerHTML = "<option value=\"\">Todos</option>";
+      Array.from(statusSet)
+        .sort((a, b) => a.localeCompare(b, "pt-BR"))
+        .forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v;
+          statusSelect.appendChild(opt);
+        });
+      if (currentStatus) statusSelect.value = currentStatus;
+    }
+
+    function applyFilters() {
+      const pedidoFilter = document.getElementById("pedidoFilter").value.trim();
+      const marcaFilter = document.getElementById("marcaFilter").value;
+      const destinoFilter = document.getElementById("destinoFilter").value;
+      const statusFilter = document.getElementById("statusFilter").value;
+      const onlyPending = document.getElementById("onlyPending").checked;
+
+      let pedidosList = [];
+      if (pedidoFilter) {
+        pedidosList = pedidoFilter
+          .split(/[,\s]+/)
+          .map(p => p.trim())
+          .filter(Boolean);
+      }
+
+      filteredOrders = allOrders.filter(o => {
+        if (pedidosList.length > 0 && !pedidosList.includes(o.Pedido)) {
+          return false;
+        }
+        if (marcaFilter && o.Marca !== marcaFilter) {
+          return false;
+        }
+        if (destinoFilter && o.Destino !== destinoFilter) {
+          return false;
+        }
+        if (statusFilter && o.Status !== statusFilter) {
+          return false;
+        }
+        if (onlyPending) {
+          const qtdPed = toInt(o.Qtd_Pedido);
+          const qtdFat = toInt(o.Qtd_Faturado);
+          if (!(qtdFat < qtdPed)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      renderSummary();
+      renderTable();
+    }
+
+    function renderSummary() {
+      const total = filteredOrders.length;
+      const totalAll = allOrders.length;
+
+      let sumPedido = 0;
+      let sumFaturado = 0;
+      filteredOrders.forEach(o => {
+        sumPedido += toInt(o.Qtd_Pedido);
+        sumFaturado += toInt(o.Qtd_Faturado);
+      });
+      const saldo = sumPedido - sumFaturado;
+
+      document.getElementById("totalOrders").textContent = total.toString();
+      document.getElementById("totalOrdersInfo").textContent =
+        totalAll > 0 ? `de ${totalAll} pedidos totais` : "";
+
+      document.getElementById("sumQtdPedido").textContent = sumPedido.toLocaleString("pt-BR");
+      document.getElementById("sumQtdFaturado").textContent = sumFaturado.toLocaleString("pt-BR");
+      document.getElementById("sumSaldo").textContent = saldo.toLocaleString("pt-BR");
+      document.getElementById("pendingInfo").textContent =
+        saldo > 0 ? "Volume ainda pendente de faturamento" : "Nenhum saldo pendente nos filtros atuais";
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#ordersTable tbody");
+      tbody.innerHTML = "";
+
+      filteredOrders.forEach(o => {
+        const tr = document.createElement("tr");
+
+        const qtdPed = toInt(o.Qtd_Pedido);
+        const qtdFat = toInt(o.Qtd_Faturado);
+        const saldo = qtdPed - qtdFat;
+
+        const tdPedido = document.createElement("td");
+        tdPedido.textContent = o.Pedido;
+
+        const tdEmissao = document.createElement("td");
+        tdEmissao.textContent = o.Emissao;
+
+        const tdMarca = document.createElement("td");
+        tdMarca.textContent = o.Marca;
+
+        const tdFabricante = document.createElement("td");
+        tdFabricante.textContent = o.Fabricante;
+
+        const tdDestino = document.createElement("td");
+        tdDestino.textContent = o.Destino;
+
+        const tdStatus = document.createElement("td");
+        const spanStatus = document.createElement("span");
+        spanStatus.classList.add("status-pill");
+
+        if (saldo > 0) {
+          spanStatus.classList.add("status-open");
+        } else if (saldo <= 0 && qtdPed > 0) {
+          spanStatus.classList.add("status-complete");
+        } else {
+          spanStatus.classList.add("status-other");
+        }
+        spanStatus.textContent = o.Status || "—";
+
+        tdStatus.appendChild(spanStatus);
+        if (saldo > 0) {
+          const pendingSpan = document.createElement("span");
+          pendingSpan.classList.add("pending-badge");
+          pendingSpan.textContent = `+${saldo}`;
+          tdStatus.appendChild(pendingSpan);
+        }
+
+        const tdQtdPed = document.createElement("td");
+        tdQtdPed.textContent = qtdPed.toLocaleString("pt-BR");
+
+        const tdQtdFat = document.createElement("td");
+        tdQtdFat.textContent = qtdFat.toLocaleString("pt-BR");
+
+        const tdSaldo = document.createElement("td");
+        tdSaldo.textContent = saldo.toLocaleString("pt-BR");
+
+        const tdAlteracao = document.createElement("td");
+        tdAlteracao.textContent = o.Alteracao;
+
+        tr.appendChild(tdPedido);
+        tr.appendChild(tdEmissao);
+        tr.appendChild(tdMarca);
+        tr.appendChild(tdFabricante);
+        tr.appendChild(tdDestino);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdQtdPed);
+        tr.appendChild(tdQtdFat);
+        tr.appendChild(tdSaldo);
+        tr.appendChild(tdAlteracao);
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("footerNote").textContent =
+        `Mostrando ${filteredOrders.length} de ${allOrders.length} pedidos.`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("pedidoFilter").addEventListener("input", () => {
+        applyFilters();
+      });
+      document.getElementById("marcaFilter").addEventListener("change", applyFilters);
+      document.getElementById("destinoFilter").addEventListener("change", applyFilters);
+      document.getElementById("statusFilter").addEventListener("change", applyFilters);
+      document.getElementById("onlyPending").addEventListener("change", applyFilters);
+
+      document.getElementById("clearFilters").addEventListener("click", () => {
+        document.getElementById("pedidoFilter").value = "";
+        document.getElementById("marcaFilter").value = "";
+        document.getElementById("destinoFilter").value = "";
+        document.getElementById("statusFilter").value = "";
+        document.getElementById("onlyPending").checked = false;
+        applyFilters();
+      });
+
+      loadOrders();
+    });
+  </script>
+</body>
+</html>
