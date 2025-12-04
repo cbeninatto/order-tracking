@@ -81,15 +81,6 @@
       flex-wrap: wrap;
     }
 
-    .filter-row label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.8rem;
-      color: #9ca3af;
-      cursor: pointer;
-    }
-
     .filter-row button {
       padding: 6px 10px;
       border-radius: 999px;
@@ -105,7 +96,7 @@
     }
 
     .summary {
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }
 
     .card {
@@ -177,14 +168,14 @@
       border: 1px solid #374151;
     }
 
-    .status-open {
-      border-color: #f59e0b;
-      color: #facc15;
+    .status-cadastrado {
+      border-color: #3b82f6;
+      color: #93c5fd;
     }
 
     .status-alterado {
-      border-color: #22c55e;
-      color: #4ade80;
+      border-color: #f59e0b;
+      color: #fbbf24;
     }
 
     .status-cancelado {
@@ -212,28 +203,29 @@
   <header>
     <div>
       <h1>Dashboard de Pedidos</h1>
-      <span>Monitoramento e filtros rápidos com base no orders.csv</span>
+      <span>Baseado no arquivo orders.csv exportado do BI</span>
     </div>
     <div class="tag">Cook Street · Internal</div>
   </header>
 
   <main>
+    <!-- FILTROS -->
     <section class="filters">
       <div class="filter-group">
         <label for="pedidoFilter">Pedido(s)</label>
-        <input id="pedidoFilter" type="text" placeholder="Ex: 4501644489, 4501765866" />
+        <input id="pedidoFilter" type="text" placeholder="Ex: 4501724257, 4501730000" />
       </div>
 
       <div class="filter-group">
-        <label for="marcaFilter">Marca</label>
-        <select id="marcaFilter">
+        <label for="linhaFilter">Linha</label>
+        <select id="linhaFilter">
           <option value="">Todas</option>
         </select>
       </div>
 
       <div class="filter-group">
-        <label for="destinoFilter">Destino</label>
-        <select id="destinoFilter">
+        <label for="modeloFilter">Modelo</label>
+        <select id="modeloFilter">
           <option value="">Todos</option>
         </select>
       </div>
@@ -248,43 +240,50 @@
       <div class="filter-group">
         <label>&nbsp;</label>
         <div class="filter-row">
-          <label>
-            <input type="checkbox" id="onlyPending" />
-            Somente pendentes (Qtd Faturado &lt; Qtd Pedido)
-          </label>
           <button id="clearFilters">Limpar filtros</button>
         </div>
       </div>
     </section>
 
+    <!-- RESUMO -->
     <section class="summary">
       <div class="card">
-        <div class="card-title">Total de pedidos (filtrados)</div>
-        <div class="card-value" id="totalOrders">-</div>
-        <div class="card-subvalue" id="totalOrdersInfo"></div>
+        <div class="card-title">Linhas filtradas</div>
+        <div class="card-value" id="totalRows">-</div>
+        <div class="card-subvalue" id="totalRowsInfo"></div>
       </div>
       <div class="card">
-        <div class="card-title">Volume pedido</div>
-        <div class="card-value" id="sumQtdPedido">-</div>
-        <div class="card-subvalue">Somatório de Qtd Pedido</div>
+        <div class="card-title">Pedidos únicos (filtrados)</div>
+        <div class="card-value" id="uniqueOrders">-</div>
+        <div class="card-subvalue">Quantidade de pedidos distintos</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Quantidade total</div>
+        <div class="card-value" id="sumQuantidade">-</div>
+        <div class="card-subvalue">Somatório de quantidade (linhas filtradas)</div>
       </div>
     </section>
 
+    <!-- TABELA -->
     <section>
       <table id="ordersTable">
         <thead>
           <tr>
             <th>Pedido</th>
             <th>Emissão</th>
-            <th>Marca</th>
-            <th>Fabricante</th>
-            <th>Destino</th>
+            <th>Linha</th>
+            <th>Modelo</th>
+            <th>Produto</th>
+            <th>Cor</th>
             <th>Status</th>
-            <th>Qtd Pedido</th>
+            <th>Qtd</th>
+            <th>Prog. Entr.</th>
+            <th>Plan. De</th>
+            <th>Plan. Até</th>
           </tr>
         </thead>
         <tbody>
-          <!-- linhas serão preenchidas via JS -->
+          <!-- linhas via JS -->
         </tbody>
       </table>
       <div class="footer-note" id="footerNote"></div>
@@ -292,18 +291,6 @@
   </main>
 
   <script>
-    const COLUMNS = [
-      "Pedido",
-      "Emissao",
-      "Marca",
-      "Fabricante",
-      "Destino",
-      "Status",
-      "Qtd_Pedido",
-      "Qtd_Faturado",
-      "Alteracao"
-    ];
-
     let allOrders = [];
     let filteredOrders = [];
 
@@ -343,19 +330,26 @@
         })
         .then(text => {
           const rows = parseCSV(text);
-          allOrders = rows.map(row => {
-            const obj = {};
-            obj.Pedido       = row["Pedido"] || "";
-            obj.Emissao      = row["Emissao"] || "";
-            obj.Marca        = row["Marca"] || "";
-            obj.Fabricante   = row["Fabricante"] || "";
-            obj.Destino      = row["Destino"] || "";
-            obj.Status       = row["Status"] || "";
-            obj.Qtd_Pedido   = row["Qtd_Pedido"] || "";
-            obj.Qtd_Faturado = row["Qtd_Faturado"] || "";
-            obj.Alteracao    = row["Alteracao"] || "";
-            return obj;
-          });
+          allOrders = rows.map(row => ({
+            pedido:        row["pedido"]        || "",
+            fornecedor:    row["fornecedor"]    || "",
+            marca_ido:     row["marca_ido"]     || "",
+            item_compra:   row["item_compra"]   || "",
+            material:      row["material"]      || "",
+            descricao:     row["descricao_produto"] || "",
+            cor:           row["cor"]           || "",
+            linha_desc:    row["linha_desc"]    || "",
+            modelo_desc:   row["modelo_desc"]   || "",
+            colecao:       row["colecao"]       || "",
+            estacao:       row["estacao"]       || "",
+            grade:         row["grade"]         || "",
+            quantidade:    row["quantidade"]    || "",
+            status:        row["status"]        || "",
+            dt_emissao:    row["dt_emissao"]    || "",
+            dt_prog_entr:  row["dt_prog_entr"]  || "",
+            dt_plan_de:    row["dt_plan_entr_de"]  || "",
+            dt_plan_ate:   row["dt_plan_entr_ate"] || ""
+          }));
 
           populateFilterOptions();
           applyFilters();
@@ -368,20 +362,20 @@
     }
 
     function populateFilterOptions() {
-      const marcaSet = new Set();
-      const destinoSet = new Set();
+      const linhaSet = new Set();
+      const modeloSet = new Set();
       const statusSet = new Set();
 
       allOrders.forEach(o => {
-        if (o.Marca) marcaSet.add(o.Marca);
-        if (o.Destino) destinoSet.add(o.Destino);
-        if (o.Status) statusSet.add(o.Status);
+        if (o.linha_desc) linhaSet.add(o.linha_desc);
+        if (o.modelo_desc) modeloSet.add(o.modelo_desc);
+        if (o.status) statusSet.add(o.status);
       });
 
-      function fillSelect(selectId, valuesSet, firstLabel) {
+      function fillSelect(selectId, valuesSet, labelAll) {
         const select = document.getElementById(selectId);
         const current = select.value;
-        select.innerHTML = `<option value="">${firstLabel}</option>`;
+        select.innerHTML = `<option value="">${labelAll}</option>`;
         Array.from(valuesSet)
           .sort((a, b) => a.localeCompare(b, "pt-BR"))
           .forEach(v => {
@@ -393,17 +387,16 @@
         if (current) select.value = current;
       }
 
-      fillSelect("marcaFilter", marcaSet, "Todas");
-      fillSelect("destinoFilter", destinoSet, "Todos");
+      fillSelect("linhaFilter", linhaSet, "Todas");
+      fillSelect("modeloFilter", modeloSet, "Todos");
       fillSelect("statusFilter", statusSet, "Todos");
     }
 
     function applyFilters() {
       const pedidoFilter = document.getElementById("pedidoFilter").value.trim();
-      const marcaFilter = document.getElementById("marcaFilter").value;
-      const destinoFilter = document.getElementById("destinoFilter").value;
+      const linhaFilter = document.getElementById("linhaFilter").value;
+      const modeloFilter = document.getElementById("modeloFilter").value;
       const statusFilter = document.getElementById("statusFilter").value;
-      const onlyPending = document.getElementById("onlyPending").checked;
 
       let pedidosList = [];
       if (pedidoFilter) {
@@ -414,24 +407,17 @@
       }
 
       filteredOrders = allOrders.filter(o => {
-        if (pedidosList.length > 0 && !pedidosList.includes(o.Pedido)) {
+        if (pedidosList.length > 0 && !pedidosList.includes(o.pedido)) {
           return false;
         }
-        if (marcaFilter && o.Marca !== marcaFilter) {
+        if (linhaFilter && o.linha_desc !== linhaFilter) {
           return false;
         }
-        if (destinoFilter && o.Destino !== destinoFilter) {
+        if (modeloFilter && o.modelo_desc !== modeloFilter) {
           return false;
         }
-        if (statusFilter && o.Status !== statusFilter) {
+        if (statusFilter && o.status !== statusFilter) {
           return false;
-        }
-        if (onlyPending) {
-          const qtdPed = toInt(o.Qtd_Pedido);
-          const qtdFat = toInt(o.Qtd_Faturado);
-          if (!(qtdFat < qtdPed)) {
-            return false;
-          }
         }
         return true;
       });
@@ -441,20 +427,22 @@
     }
 
     function renderSummary() {
-      const total = filteredOrders.length;
+      const totalRows = filteredOrders.length;
       const totalAll = allOrders.length;
+      const uniquePedidos = new Set(filteredOrders.map(o => o.pedido)).size;
 
-      let sumPedido = 0;
+      let sumQtd = 0;
       filteredOrders.forEach(o => {
-        sumPedido += toInt(o.Qtd_Pedido);
+        sumQtd += toInt(o.quantidade);
       });
 
-      document.getElementById("totalOrders").textContent = total.toString();
-      document.getElementById("totalOrdersInfo").textContent =
-        totalAll > 0 ? `de ${totalAll} pedidos totais` : "";
+      document.getElementById("totalRows").textContent = totalRows.toString();
+      document.getElementById("totalRowsInfo").textContent =
+        totalAll > 0 ? `de ${totalAll} linhas totais` : "";
 
-      document.getElementById("sumQtdPedido").textContent =
-        sumPedido.toLocaleString("pt-BR");
+      document.getElementById("uniqueOrders").textContent = uniquePedidos.toString();
+      document.getElementById("sumQuantidade").textContent =
+        sumQtd.toLocaleString("pt-BR");
     }
 
     function renderTable() {
@@ -465,68 +453,82 @@
         const tr = document.createElement("tr");
 
         const tdPedido = document.createElement("td");
-        tdPedido.textContent = o.Pedido;
+        tdPedido.textContent = o.pedido;
 
         const tdEmissao = document.createElement("td");
-        tdEmissao.textContent = o.Emissao;
+        tdEmissao.textContent = o.dt_emissao;
 
-        const tdMarca = document.createElement("td");
-        tdMarca.textContent = o.Marca;
+        const tdLinha = document.createElement("td");
+        tdLinha.textContent = o.linha_desc;
 
-        const tdFabricante = document.createElement("td");
-        tdFabricante.textContent = o.Fabricante;
+        const tdModelo = document.createElement("td");
+        tdModelo.textContent = o.modelo_desc;
 
-        const tdDestino = document.createElement("td");
-        tdDestino.textContent = o.Destino;
+        const tdProduto = document.createElement("td");
+        tdProduto.textContent = o.descricao;
+
+        const tdCor = document.createElement("td");
+        tdCor.textContent = o.cor;
 
         const tdStatus = document.createElement("td");
         const spanStatus = document.createElement("span");
         spanStatus.classList.add("status-pill");
 
-        const statusLower = (o.Status || "").toLowerCase();
+        const statusLower = (o.status || "").toLowerCase();
         if (statusLower === "cadastrado") {
-          spanStatus.classList.add("status-open");
+          spanStatus.classList.add("status-cadastrado");
         } else if (statusLower === "alterado") {
           spanStatus.classList.add("status-alterado");
         } else if (statusLower === "cancelado") {
           spanStatus.classList.add("status-cancelado");
         } else {
-          spanStatus.classList.add("status-open");
+          spanStatus.classList.add("status-cadastrado");
         }
-        spanStatus.textContent = o.Status || "—";
+        spanStatus.textContent = o.status || "—";
         tdStatus.appendChild(spanStatus);
 
-        const tdQtdPed = document.createElement("td");
-        tdQtdPed.textContent = toInt(o.Qtd_Pedido).toLocaleString("pt-BR");
+        const tdQtd = document.createElement("td");
+        tdQtd.textContent = toInt(o.quantidade).toLocaleString("pt-BR");
+
+        const tdProg = document.createElement("td");
+        tdProg.textContent = o.dt_prog_entr;
+
+        const tdPlanDe = document.createElement("td");
+        tdPlanDe.textContent = o.dt_plan_de;
+
+        const tdPlanAte = document.createElement("td");
+        tdPlanAte.textContent = o.dt_plan_ate;
 
         tr.appendChild(tdPedido);
         tr.appendChild(tdEmissao);
-        tr.appendChild(tdMarca);
-        tr.appendChild(tdFabricante);
-        tr.appendChild(tdDestino);
+        tr.appendChild(tdLinha);
+        tr.appendChild(tdModelo);
+        tr.appendChild(tdProduto);
+        tr.appendChild(tdCor);
         tr.appendChild(tdStatus);
-        tr.appendChild(tdQtdPed);
+        tr.appendChild(tdQtd);
+        tr.appendChild(tdProg);
+        tr.appendChild(tdPlanDe);
+        tr.appendChild(tdPlanAte);
 
         tbody.appendChild(tr);
       });
 
       document.getElementById("footerNote").textContent =
-        `Mostrando ${filteredOrders.length} de ${allOrders.length} pedidos.`;
+        `Mostrando ${filteredOrders.length} linhas de ${allOrders.length} no total.`;
     }
 
     document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("pedidoFilter").addEventListener("input", applyFilters);
-      document.getElementById("marcaFilter").addEventListener("change", applyFilters);
-      document.getElementById("destinoFilter").addEventListener("change", applyFilters);
+      document.getElementById("linhaFilter").addEventListener("change", applyFilters);
+      document.getElementById("modeloFilter").addEventListener("change", applyFilters);
       document.getElementById("statusFilter").addEventListener("change", applyFilters);
-      document.getElementById("onlyPending").addEventListener("change", applyFilters);
 
       document.getElementById("clearFilters").addEventListener("click", () => {
         document.getElementById("pedidoFilter").value = "";
-        document.getElementById("marcaFilter").value = "";
-        document.getElementById("destinoFilter").value = "";
+        document.getElementById("linhaFilter").value = "";
+        document.getElementById("modeloFilter").value = "";
         document.getElementById("statusFilter").value = "";
-        document.getElementById("onlyPending").checked = false;
         applyFilters();
       });
 
