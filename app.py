@@ -1,10 +1,7 @@
- import streamlit as st
+import streamlit as st
 import pandas as pd
 from pathlib import Path
 
-# --------------------------------------------------
-# Basic config
-# --------------------------------------------------
 st.set_page_config(
     page_title="Rastreamento de Pedidos",
     page_icon="📦",
@@ -24,24 +21,14 @@ COLUMNS = [
 ]
 
 
-# --------------------------------------------------
-# Helpers
-# --------------------------------------------------
 @st.cache_data
 def load_orders() -> pd.DataFrame:
-    """
-    Load orders.csv if it exists.
-    Always returns a DataFrame with the expected columns.
-    """
     csv_path = Path("orders.csv")
     if not csv_path.exists():
-        # Empty base with correct columns
         return pd.DataFrame(columns=COLUMNS)
 
     df = pd.read_csv(csv_path, dtype=str)
-    # Normalize: everything as string, strip spaces
     df = df.apply(lambda col: col.astype(str).str.strip())
-    # Ensure column order
     for col in COLUMNS:
         if col not in df.columns:
             df[col] = ""
@@ -50,10 +37,6 @@ def load_orders() -> pd.DataFrame:
 
 
 def save_orders(df: pd.DataFrame):
-    """
-    Save DataFrame to orders.csv with proper column order
-    and clear cache for fresh reload.
-    """
     df = df.copy()
     for col in COLUMNS:
         if col not in df.columns:
@@ -65,24 +48,16 @@ def save_orders(df: pd.DataFrame):
 
 def parse_azzas_line(raw: str) -> dict:
     """
-    Parse a line copied from AZZAS / SAP like:
+    Exemplo de entrada (copiado do sistema, com quebras de linha):
 
-    4501644489\t04/07/2025\tRESERVA GO\t
+    4501644489\t04/07/2025\tRESERVA GO
     5023016 - Cook Street Sourcing...
     1025 - AREZZO\tAlterado\t1002\t0\t27/11/2025
-
-    Strategy:
-    - Replace line breaks by tabs
-    - Split on tabs
-    - Strip each part
-    - Expect exactly 9 fields in this order:
-      Pedido, Emissao, Marca, Fabricante, Destino,
-      Status, Qtd_Pedido, Qtd_Faturado, Alteracao
     """
     if not raw or not raw.strip():
         raise ValueError("Entrada vazia.")
 
-    # Normalize line breaks and convert them to tabs
+    # Normaliza quebras de linha → tabs
     text = (
         raw.replace("\r\n", "\n")
            .replace("\r", "\n")
@@ -107,7 +82,7 @@ def filter_orders(df, pedidos_text, marca, destino):
 
     mask = pd.Series(True, index=df.index)
 
-    # Filter by Pedido (supports multiple, separated by comma/semicolon/space)
+    # Filtro por pedido (suporta múltiplos separados por vírgula/; / espaço)
     if pedidos_text:
         raw = (
             pedidos_text
@@ -118,20 +93,17 @@ def filter_orders(df, pedidos_text, marca, destino):
         if pedidos_list:
             mask &= df["Pedido"].isin(pedidos_list)
 
-    # Filter by Marca (contains, case-insensitive)
+    # Filtro por marca
     if marca:
         mask &= df["Marca"].str.contains(marca, case=False, na=False)
 
-    # Filter by Destino (contains, case-insensitive)
+    # Filtro por destino
     if destino:
         mask &= df["Destino"].str.contains(destino, case=False, na=False)
 
     return df[mask]
 
 
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
 def main():
     st.title("📦 Rastreamento de Pedidos")
     st.markdown(
@@ -148,9 +120,7 @@ def main():
             "Use a área **Admin (Atualizar CSV)** abaixo para incluir o primeiro pedido."
         )
 
-    # -------------------------
-    # Client search section
-    # -------------------------
+    # ------------------ Consulta cliente ------------------
     st.markdown("## 🔍 Consulta de Pedidos")
 
     with st.form("filtro_pedidos"):
@@ -179,7 +149,7 @@ def main():
             if result_df.empty:
                 st.warning("Nenhum pedido encontrado com os filtros informados.")
             else:
-                # If only one order, show detailed card
+                # 1 resultado → card bonitinho
                 if len(result_df) == 1:
                     row = result_df.iloc[0]
 
@@ -201,24 +171,25 @@ def main():
                     st.markdown("### Detalhes completos")
                     st.dataframe(result_df, use_container_width=True)
 
+                # Vários resultados → tabela
                 else:
                     st.subheader(f"{len(result_df)} pedidos encontrados")
                     st.dataframe(result_df, use_container_width=True)
 
     st.markdown("---")
 
-    # -------------------------
-    # Admin section: update CSV via pasted line
-    # -------------------------
+    # ------------------ Admin ------------------
     st.markdown("## 🛠️ Admin (Atualizar CSV)")
 
     with st.expander("Área restrita para atualização da base (orders.csv)", expanded=False):
         st.markdown(
             """
             Cole **exatamente** a linha copiada do sistema (AZZAS / SAP), 1 pedido por vez.  
-            O formato esperado é algo como:
+            Exemplo de formato:
 
-            `4501644489\t04/07/2025\tRESERVA GO\\n5023016 - Cook Street Sourcing...\\n1025 - AREZZO\tAlterado\t1002\t0\t27/11/2025`
+            `4501644489\\t04/07/2025\\tRESERVA GO`
+            `5023016 - Cook Street Sourcing...`
+            `1025 - AREZZO\\tAlterado\\t1002\\t0\\t27/11/2025`
             """
         )
 
@@ -247,11 +218,9 @@ def main():
                 except ValueError as e:
                     st.error(f"Erro ao interpretar a linha:\n\n{e}")
                 else:
-                    # Load current df (not cached copy)
                     df_current = load_orders().copy()
 
                     if df_current.empty:
-                        # Start new base
                         df_current = pd.DataFrame(columns=COLUMNS)
 
                     pedido = record["Pedido"]
@@ -259,19 +228,18 @@ def main():
                     if "Pedido" in df_current.columns:
                         mask = df_current["Pedido"] == pedido
                         if mask.any():
-                            # Update existing row
+                            # Atualiza linha existente
                             for col in COLUMNS:
                                 df_current.loc[mask, col] = record[col]
                             msg = f"Pedido {pedido} atualizado com sucesso."
                         else:
-                            # Append new row
+                            # Adiciona nova linha
                             df_current = pd.concat(
                                 [df_current, pd.DataFrame([record])],
                                 ignore_index=True
                             )
                             msg = f"Pedido {pedido} incluído com sucesso."
                     else:
-                        # Should not happen if we enforced columns, but safe guard
                         df_current = pd.DataFrame([record], columns=COLUMNS)
                         msg = f"Base criada com o pedido {pedido}."
 
