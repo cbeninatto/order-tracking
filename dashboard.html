@@ -182,20 +182,14 @@
       color: #facc15;
     }
 
-    .status-complete {
+    .status-alterado {
       border-color: #22c55e;
       color: #4ade80;
     }
 
-    .status-other {
-      border-color: #6b7280;
-      color: #e5e7eb;
-    }
-
-    .pending-badge {
-      font-size: 0.7rem;
-      color: #f97316;
-      margin-left: 4px;
+    .status-cancelado {
+      border-color: #f97316;
+      color: #fed7aa;
     }
 
     .footer-note {
@@ -274,16 +268,6 @@
         <div class="card-value" id="sumQtdPedido">-</div>
         <div class="card-subvalue">Somatório de Qtd Pedido</div>
       </div>
-      <div class="card">
-        <div class="card-title">Volume faturado</div>
-        <div class="card-value" id="sumQtdFaturado">-</div>
-        <div class="card-subvalue">Somatório de Qtd Faturado</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Saldo a faturar</div>
-        <div class="card-value" id="sumSaldo">-</div>
-        <div class="card-subvalue" id="pendingInfo"></div>
-      </div>
     </section>
 
     <section>
@@ -297,9 +281,6 @@
             <th>Destino</th>
             <th>Status</th>
             <th>Qtd Pedido</th>
-            <th>Qtd Faturado</th>
-            <th>Saldo</th>
-            <th>Alteração</th>
           </tr>
         </thead>
         <tbody>
@@ -397,10 +378,10 @@
         if (o.Status) statusSet.add(o.Status);
       });
 
-      function fillSelect(selectId, valuesSet) {
+      function fillSelect(selectId, valuesSet, firstLabel) {
         const select = document.getElementById(selectId);
         const current = select.value;
-        select.innerHTML = "<option value=\"\">Todas/Todos</option>";
+        select.innerHTML = `<option value="">${firstLabel}</option>`;
         Array.from(valuesSet)
           .sort((a, b) => a.localeCompare(b, "pt-BR"))
           .forEach(v => {
@@ -412,21 +393,9 @@
         if (current) select.value = current;
       }
 
-      fillSelect("marcaFilter", marcaSet);
-      fillSelect("destinoFilter", destinoSet);
-
-      const statusSelect = document.getElementById("statusFilter");
-      const currentStatus = statusSelect.value;
-      statusSelect.innerHTML = "<option value=\"\">Todos</option>";
-      Array.from(statusSet)
-        .sort((a, b) => a.localeCompare(b, "pt-BR"))
-        .forEach(v => {
-          const opt = document.createElement("option");
-          opt.value = v;
-          opt.textContent = v;
-          statusSelect.appendChild(opt);
-        });
-      if (currentStatus) statusSelect.value = currentStatus;
+      fillSelect("marcaFilter", marcaSet, "Todas");
+      fillSelect("destinoFilter", destinoSet, "Todos");
+      fillSelect("statusFilter", statusSet, "Todos");
     }
 
     function applyFilters() {
@@ -476,22 +445,16 @@
       const totalAll = allOrders.length;
 
       let sumPedido = 0;
-      let sumFaturado = 0;
       filteredOrders.forEach(o => {
         sumPedido += toInt(o.Qtd_Pedido);
-        sumFaturado += toInt(o.Qtd_Faturado);
       });
-      const saldo = sumPedido - sumFaturado;
 
       document.getElementById("totalOrders").textContent = total.toString();
       document.getElementById("totalOrdersInfo").textContent =
         totalAll > 0 ? `de ${totalAll} pedidos totais` : "";
 
-      document.getElementById("sumQtdPedido").textContent = sumPedido.toLocaleString("pt-BR");
-      document.getElementById("sumQtdFaturado").textContent = sumFaturado.toLocaleString("pt-BR");
-      document.getElementById("sumSaldo").textContent = saldo.toLocaleString("pt-BR");
-      document.getElementById("pendingInfo").textContent =
-        saldo > 0 ? "Volume ainda pendente de faturamento" : "Nenhum saldo pendente nos filtros atuais";
+      document.getElementById("sumQtdPedido").textContent =
+        sumPedido.toLocaleString("pt-BR");
     }
 
     function renderTable() {
@@ -500,10 +463,6 @@
 
       filteredOrders.forEach(o => {
         const tr = document.createElement("tr");
-
-        const qtdPed = toInt(o.Qtd_Pedido);
-        const qtdFat = toInt(o.Qtd_Faturado);
-        const saldo = qtdPed - qtdFat;
 
         const tdPedido = document.createElement("td");
         tdPedido.textContent = o.Pedido;
@@ -524,34 +483,21 @@
         const spanStatus = document.createElement("span");
         spanStatus.classList.add("status-pill");
 
-        if (saldo > 0) {
+        const statusLower = (o.Status || "").toLowerCase();
+        if (statusLower === "cadastrado") {
           spanStatus.classList.add("status-open");
-        } else if (saldo <= 0 && qtdPed > 0) {
-          spanStatus.classList.add("status-complete");
+        } else if (statusLower === "alterado") {
+          spanStatus.classList.add("status-alterado");
+        } else if (statusLower === "cancelado") {
+          spanStatus.classList.add("status-cancelado");
         } else {
-          spanStatus.classList.add("status-other");
+          spanStatus.classList.add("status-open");
         }
         spanStatus.textContent = o.Status || "—";
-
         tdStatus.appendChild(spanStatus);
-        if (saldo > 0) {
-          const pendingSpan = document.createElement("span");
-          pendingSpan.classList.add("pending-badge");
-          pendingSpan.textContent = `+${saldo}`;
-          tdStatus.appendChild(pendingSpan);
-        }
 
         const tdQtdPed = document.createElement("td");
-        tdQtdPed.textContent = qtdPed.toLocaleString("pt-BR");
-
-        const tdQtdFat = document.createElement("td");
-        tdQtdFat.textContent = qtdFat.toLocaleString("pt-BR");
-
-        const tdSaldo = document.createElement("td");
-        tdSaldo.textContent = saldo.toLocaleString("pt-BR");
-
-        const tdAlteracao = document.createElement("td");
-        tdAlteracao.textContent = o.Alteracao;
+        tdQtdPed.textContent = toInt(o.Qtd_Pedido).toLocaleString("pt-BR");
 
         tr.appendChild(tdPedido);
         tr.appendChild(tdEmissao);
@@ -560,9 +506,6 @@
         tr.appendChild(tdDestino);
         tr.appendChild(tdStatus);
         tr.appendChild(tdQtdPed);
-        tr.appendChild(tdQtdFat);
-        tr.appendChild(tdSaldo);
-        tr.appendChild(tdAlteracao);
 
         tbody.appendChild(tr);
       });
@@ -572,9 +515,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("pedidoFilter").addEventListener("input", () => {
-        applyFilters();
-      });
+      document.getElementById("pedidoFilter").addEventListener("input", applyFilters);
       document.getElementById("marcaFilter").addEventListener("change", applyFilters);
       document.getElementById("destinoFilter").addEventListener("change", applyFilters);
       document.getElementById("statusFilter").addEventListener("change", applyFilters);
