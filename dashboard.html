@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard de Pedidos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    header {
+      padding: 16px 24px;
+      background: #020617;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      margin: 0;
+    }
+
+    header span {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    main {
+      padding: 16px 24px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .filters, .summary {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .filters {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #1f2937;
+    }
+
+    .filter-group label {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .filter-group input,
+    .filter-group select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.85rem;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-row button {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .filter-row button:hover {
+      background: #1f2937;
+    }
+
+    .summary {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid #1f2937;
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+
+    .card-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .card-subvalue {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.8rem;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+    }
+
+    thead {
+      background: #020617;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #111827;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #9ca3af;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #020617;
+    }
+
+    tbody tr:hover {
+      background: #111827;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid #374151;
+    }
+
+    .status-cadastrado {
+      border-color: #3b82f6;
+      color: #93c5fd;
+    }
+
+    .status-alterado {
+      border-color: #f59e0b;
+      color: #fbbf24;
+    }
+
+    .status-cancelado {
+      border-color: #f97316;
+      color: #fed7aa;
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: #6b7280;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #111827;
+      border: 1px solid #374151;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Dashboard de Pedidos</h1>
+      <span>Baseado no arquivo orders.csv exportado do BI</span>
+    </div>
+    <div class="tag">Cook Street · Internal</div>
+  </header>
+
+  <main>
+    <!-- FILTROS -->
+    <section class="filters">
+      <div class="filter-group">
+        <label for="pedidoFilter">Pedido(s)</label>
+        <input id="pedidoFilter" type="text" placeholder="Ex: 4501724257, 4501730000" />
+      </div>
+
+      <div class="filter-group">
+        <label for="linhaFilter">Linha</label>
+        <select id="linhaFilter">
+          <option value="">Todas</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="modeloFilter">Modelo</label>
+        <select id="modeloFilter">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="statusFilter">Status</label>
+        <select id="statusFilter">
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>&nbsp;</label>
+        <div class="filter-row">
+          <button id="clearFilters">Limpar filtros</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESUMO -->
+    <section class="summary">
+      <div class="card">
+        <div class="card-title">Linhas filtradas</div>
+        <div class="card-value" id="totalRows">-</div>
+        <div class="card-subvalue" id="totalRowsInfo"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Pedidos únicos (filtrados)</div>
+        <div class="card-value" id="uniqueOrders">-</div>
+        <div class="card-subvalue">Quantidade de pedidos distintos</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Quantidade total</div>
+        <div class="card-value" id="sumQuantidade">-</div>
+        <div class="card-subvalue">Somatório de quantidade (linhas filtradas)</div>
+      </div>
+    </section>
+
+    <!-- TABELA -->
+    <section>
+      <table id="ordersTable">
+        <thead>
+          <tr>
+            <th>Pedido</th>
+            <th>Emissão</th>
+            <th>Linha</th>
+            <th>Modelo</th>
+            <th>Produto</th>
+            <th>Cor</th>
+            <th>Status</th>
+            <th>Qtd</th>
+            <th>Prog. Entr.</th>
+            <th>Plan. De</th>
+            <th>Plan. Até</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- linhas via JS -->
+        </tbody>
+      </table>
+      <div class="footer-note" id="footerNote"></div>
+    </section>
+  </main>
+
+  <script>
+    let allOrders = [];
+    let filteredOrders = [];
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length <= 1) return [];
+
+      const headers = lines[0].split(",").map(h => h.trim());
+      const rows = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const parts = line.split(",");
+        const row = {};
+        headers.forEach((h, idx) => {
+          row[h] = (parts[idx] || "").trim();
+        });
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    function toInt(value) {
+      if (!value) return 0;
+      const v = parseInt(value.toString().replace(/\D/g, ""), 10);
+      return isNaN(v) ? 0 : v;
+    }
+
+    function loadOrders() {
+      fetch("orders.csv?_=" + Date.now())
+        .then(resp => {
+          if (!resp.ok) {
+            throw new Error("Não foi possível carregar orders.csv");
+          }
+          return resp.text();
+        })
+        .then(text => {
+          const rows = parseCSV(text);
+          allOrders = rows.map(row => ({
+            pedido:        row["pedido"]        || "",
+            fornecedor:    row["fornecedor"]    || "",
+            marca_ido:     row["marca_ido"]     || "",
+            item_compra:   row["item_compra"]   || "",
+            material:      row["material"]      || "",
+            descricao:     row["descricao_produto"] || "",
+            cor:           row["cor"]           || "",
+            linha_desc:    row["linha_desc"]    || "",
+            modelo_desc:   row["modelo_desc"]   || "",
+            colecao:       row["colecao"]       || "",
+            estacao:       row["estacao"]       || "",
+            grade:         row["grade"]         || "",
+            quantidade:    row["quantidade"]    || "",
+            status:        row["status"]        || "",
+            dt_emissao:    row["dt_emissao"]    || "",
+            dt_prog_entr:  row["dt_prog_entr"]  || "",
+            dt_plan_de:    row["dt_plan_entr_de"]  || "",
+            dt_plan_ate:   row["dt_plan_entr_ate"] || ""
+          }));
+
+          populateFilterOptions();
+          applyFilters();
+        })
+        .catch(err => {
+          console.error(err);
+          document.getElementById("footerNote").textContent =
+            "Erro ao carregar orders.csv. Verifique se o arquivo está na mesma pasta do dashboard.html.";
+        });
+    }
+
+    function populateFilterOptions() {
+      const linhaSet = new Set();
+      const modeloSet = new Set();
+      const statusSet = new Set();
+
+      allOrders.forEach(o => {
+        if (o.linha_desc) linhaSet.add(o.linha_desc);
+        if (o.modelo_desc) modeloSet.add(o.modelo_desc);
+        if (o.status) statusSet.add(o.status);
+      });
+
+      function fillSelect(selectId, valuesSet, labelAll) {
+        const select = document.getElementById(selectId);
+        const current = select.value;
+        select.innerHTML = `<option value="">${labelAll}</option>`;
+        Array.from(valuesSet)
+          .sort((a, b) => a.localeCompare(b, "pt-BR"))
+          .forEach(v => {
+            const opt = document.createElement("option");
+            opt.value = v;
+            opt.textContent = v;
+            select.appendChild(opt);
+          });
+        if (current) select.value = current;
+      }
+
+      fillSelect("linhaFilter", linhaSet, "Todas");
+      fillSelect("modeloFilter", modeloSet, "Todos");
+      fillSelect("statusFilter", statusSet, "Todos");
+    }
+
+    function applyFilters() {
+      const pedidoFilter = document.getElementById("pedidoFilter").value.trim();
+      const linhaFilter = document.getElementById("linhaFilter").value;
+      const modeloFilter = document.getElementById("modeloFilter").value;
+      const statusFilter = document.getElementById("statusFilter").value;
+
+      let pedidosList = [];
+      if (pedidoFilter) {
+        pedidosList = pedidoFilter
+          .split(/[,\s]+/)
+          .map(p => p.trim())
+          .filter(Boolean);
+      }
+
+      filteredOrders = allOrders.filter(o => {
+        if (pedidosList.length > 0 && !pedidosList.includes(o.pedido)) {
+          return false;
+        }
+        if (linhaFilter && o.linha_desc !== linhaFilter) {
+          return false;
+        }
+        if (modeloFilter && o.modelo_desc !== modeloFilter) {
+          return false;
+        }
+        if (statusFilter && o.status !== statusFilter) {
+          return false;
+        }
+        return true;
+      });
+
+      renderSummary();
+      renderTable();
+    }
+
+    function renderSummary() {
+      const totalRows = filteredOrders.length;
+      const totalAll = allOrders.length;
+      const uniquePedidos = new Set(filteredOrders.map(o => o.pedido)).size;
+
+      let sumQtd = 0;
+      filteredOrders.forEach(o => {
+        sumQtd += toInt(o.quantidade);
+      });
+
+      document.getElementById("totalRows").textContent = totalRows.toString();
+      document.getElementById("totalRowsInfo").textContent =
+        totalAll > 0 ? `de ${totalAll} linhas totais` : "";
+
+      document.getElementById("uniqueOrders").textContent = uniquePedidos.toString();
+      document.getElementById("sumQuantidade").textContent =
+        sumQtd.toLocaleString("pt-BR");
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector("#ordersTable tbody");
+      tbody.innerHTML = "";
+
+      filteredOrders.forEach(o => {
+        const tr = document.createElement("tr");
+
+        const tdPedido = document.createElement("td");
+        tdPedido.textContent = o.pedido;
+
+        const tdEmissao = document.createElement("td");
+        tdEmissao.textContent = o.dt_emissao;
+
+        const tdLinha = document.createElement("td");
+        tdLinha.textContent = o.linha_desc;
+
+        const tdModelo = document.createElement("td");
+        tdModelo.textContent = o.modelo_desc;
+
+        const tdProduto = document.createElement("td");
+        tdProduto.textContent = o.descricao;
+
+        const tdCor = document.createElement("td");
+        tdCor.textContent = o.cor;
+
+        const tdStatus = document.createElement("td");
+        const spanStatus = document.createElement("span");
+        spanStatus.classList.add("status-pill");
+
+        const statusLower = (o.status || "").toLowerCase();
+        if (statusLower === "cadastrado") {
+          spanStatus.classList.add("status-cadastrado");
+        } else if (statusLower === "alterado") {
+          spanStatus.classList.add("status-alterado");
+        } else if (statusLower === "cancelado") {
+          spanStatus.classList.add("status-cancelado");
+        } else {
+          spanStatus.classList.add("status-cadastrado");
+        }
+        spanStatus.textContent = o.status || "—";
+        tdStatus.appendChild(spanStatus);
+
+        const tdQtd = document.createElement("td");
+        tdQtd.textContent = toInt(o.quantidade).toLocaleString("pt-BR");
+
+        const tdProg = document.createElement("td");
+        tdProg.textContent = o.dt_prog_entr;
+
+        const tdPlanDe = document.createElement("td");
+        tdPlanDe.textContent = o.dt_plan_de;
+
+        const tdPlanAte = document.createElement("td");
+        tdPlanAte.textContent = o.dt_plan_ate;
+
+        tr.appendChild(tdPedido);
+        tr.appendChild(tdEmissao);
+        tr.appendChild(tdLinha);
+        tr.appendChild(tdModelo);
+        tr.appendChild(tdProduto);
+        tr.appendChild(tdCor);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdQtd);
+        tr.appendChild(tdProg);
+        tr.appendChild(tdPlanDe);
+        tr.appendChild(tdPlanAte);
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("footerNote").textContent =
+        `Mostrando ${filteredOrders.length} linhas de ${allOrders.length} no total.`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("pedidoFilter").addEventListener("input", applyFilters);
+      document.getElementById("linhaFilter").addEventListener("change", applyFilters);
+      document.getElementById("modeloFilter").addEventListener("change", applyFilters);
+      document.getElementById("statusFilter").addEventListener("change", applyFilters);
+
+      document.getElementById("clearFilters").addEventListener("click", () => {
+        document.getElementById("pedidoFilter").value = "";
+        document.getElementById("linhaFilter").value = "";
+        document.getElementById("modeloFilter").value = "";
+        document.getElementById("statusFilter").value = "";
+        applyFilters();
+      });
+
+      loadOrders();
+    });
+  </script>
+</body>
+</html>
