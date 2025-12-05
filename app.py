@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import xml.etree.ElementTree as ET
 from io import StringIO
+import re
+from datetime import datetime
 
 st.set_page_config(page_title="Order XML → CSV", page_icon="📦", layout="wide")
 
@@ -22,33 +24,57 @@ STATUS_MAP = {
     "2": "Cancelado",
 }
 
+
+def parse_to_date(raw: str) -> str:
+    """Normalize different date formats into YYYY-MM-DD strings for Excel."""
+    if not raw:
+        return ""
+    raw = raw.strip()
+
+    # Pattern like TO_DATE('03102025','DDMMYYYY')
+    m = re.search(r"TO_DATE\('(\d{8})','DDMMYYYY'\)", raw)
+    if m:
+        try:
+            dt = datetime.strptime(m.group(1), "%d%m%Y")
+            return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            return ""
+
+    # Plain numeric YYYYMMDD (e.g. 20251001)
+    if re.fullmatch(r"\d{8}", raw):
+        try:
+            dt = datetime.strptime(raw, "%Y%m%d")
+            return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    # Already a more "normal" date string: try some patterns
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            dt = datetime.strptime(raw, fmt)
+            return dt.strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    # Fallback: return original string (as-is)
+    return raw
+
+
 def parse_arezzo_xml(file) -> pd.DataFrame:
     """Parse a single Arezzo PO XML into an item-level DataFrame."""
-    tree = ET.parse(file)
+    try:
+        tree = ET.parse(file)
+    except ET.ParseError:
+        return pd.DataFrame()
+
     root = tree.getroot()
 
     # --- Header (Pedido_Compra) ---
     header_access = root.find(".//STATEMENT_PEDIDO_COMPRA/Pedido_Compra/access")
     if header_access is None:
-        return pd.DataFrame()  # nothing useful
+        return pd.DataFrame()
 
     header = {elem.tag: (elem.text or "").strip() for elem in header_access}
-
-    # Optional: normalize DT_EMISSAO from TO_DATE('03102025','DDMMYYYY') → 03/10/2025
-    def parse_to_date(raw: str) -> str:
-        # raw example: "TO_DATE('03102025','DDMMYYYY')"
-        if not raw or "TO_DATE" not in raw:
-            return raw
-        try:
-            inside = raw.split("TO_DATE(")[1].split(")")[0]
-            date_str = inside.split("'")[1]  # 03102025
-            # DDMMYYYY
-            dd = date_str[0:2]
-            mm = date_str[2:4]
-            yyyy = date_str[4:8]
-            return f"{dd}/{mm}/{yyyy}"
-        except Exception:
-            return raw
 
     dt_emissao_norm = parse_to_date(header.get("DT_EMISSAO", ""))
 
@@ -80,15 +106,15 @@ def parse_arezzo_xml(file) -> pd.DataFrame:
         # Quantidade
         quantidade_str = row_raw.get("TL_REQU", "0")
         try:
-            quantidade = int(quantidade_str)
+            quantidade = float(quantidade_str)
         except ValueError:
             quantidade = None
 
-        # Status mapeado
+        # Status mapeado (só texto)
         status_codigo = row_raw.get("STATUS_ITEM_PEDD", "")
         status_texto = STATUS_MAP.get(status_codigo, status_codigo)
 
-        # Cores: tudo depois do "|"
+        # Cor: tudo depois do "|"
         cor = ""
         if "|" in desc_produto:
             parts = desc_produto.split("|")
@@ -115,7 +141,7 @@ def parse_arezzo_xml(file) -> pd.DataFrame:
             "estacao": estacao,
             "grade": grade,
             "quantidade": quantidade,
-            "status": status_texto,  # <-- só texto, sem número
+            "status": status_texto,  # <-- só Cadastrado / Alterado / Cancelado
             "dt_emissao": dt_emissao_norm,
             "dt_prog_entr": dt_prog_entr,
             "dt_plan_entr_de": dt_plan_entr_de,
@@ -126,7 +152,7 @@ def parse_arezzo_xml(file) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
 
-    # Ordenar por pedido + item
+    # Ordenar por pedido + item_compra
     if not df.empty:
         df = df.sort_values(["pedido", "item_compra"]).reset_index(drop=True)
 
@@ -156,7 +182,7 @@ if uploaded_files:
         st.subheader("Tabela de Itens (Consolidado)")
         st.dataframe(df_all, use_container_width=True)
 
-        # CSV download (sem gravar em disco → evita PermissionError)
+        # CSV download (sem gravar no disco → evita PermissionError)
         csv_buffer = StringIO()
         df_all.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
         csv_data = csv_buffer.getvalue()
