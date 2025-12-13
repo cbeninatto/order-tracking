@@ -24,6 +24,14 @@ STATUS_MAP = {
     "2": "Cancelado",
 }
 
+MARCA_MAP = {
+    "1": "AREZZO",
+    "21": "RESERVA",
+    "31": "BRIZZA",
+    "4": "ANACAPRI",
+    "2": "SCHUTZ",
+}
+
 
 def parse_to_date(raw: str) -> str:
     """Normalize different date formats into YYYY-MM-DD strings for Excel."""
@@ -63,7 +71,7 @@ def parse_to_date(raw: str) -> str:
 
 
 def parse_arezzo_xml(file_obj):
-    """Parse a single Arezzo PO XML. Retorna apenas os DataFrames, mas vamos usar só items aqui."""
+    """Parse a single Arezzo PO XML. Retorna header/items/grade/volumes, mas usamos só items na UI."""
     try:
         tree = ET.parse(file_obj)
     except ET.ParseError:
@@ -150,7 +158,7 @@ def parse_arezzo_xml(file_obj):
 
     df_items = pd.DataFrame(item_rows)
 
-    # Grade / Volumes são ignorados na UI, mas mantidos aqui se precisar no futuro
+    # Grade / Volumes ficam disponíveis se você quiser usar depois
     grade_rows = []
     grade_section = root.find("STATEMENT_GRADE_ITEM_PEDIDO_COMPRA/Grade_Item_Pedido_Compra")
     if grade_section is not None:
@@ -236,11 +244,21 @@ if uploaded_files:
         available_cols = [c for c in simple_cols_src if c in df_items_all.columns]
         df_simple = df_items_all[available_cols].copy()
 
+        # ---- Mapear MARCA_IDO para nome da marca ----
+        if "MARCA_IDO" in df_simple.columns:
+            df_simple["MARCA_NOME"] = (
+                df_simple["MARCA_IDO"]
+                .astype(str)
+                .map(MARCA_MAP)
+                .fillna(df_simple["MARCA_IDO"])
+            )
+        else:
+            df_simple["MARCA_NOME"] = ""
+
         # Renomear para os nomes finais que você definiu
         df_simple = df_simple.rename(
             columns={
                 "DT_EMISSAO": "EMISSAO",
-                "MARCA_IDO": "MARCA",
                 "NUM_PEDD_COMPRA": "NUMERO PEDIDO",
                 "CD_ITEM_MATERIAL": "SKU",
                 "DESC_PRODUTO": "PRODUTO",
@@ -254,6 +272,7 @@ if uploaded_files:
                 "VALOR_UNIT_PRODUTO": "PRECO",
                 "CONDICAO_PAGTO": "PAGAMENTO",
                 "STATUS_ITEM_PEDD_DESC": "STATUS PEDIDO",
+                "MARCA_NOME": "MARCA",
             }
         )
 
