@@ -7,16 +7,14 @@ from datetime import datetime
 
 st.set_page_config(page_title="Order XML → CSV", page_icon="📦", layout="wide")
 
-st.title("📦 Order XML → Tabelas de Pedidos (Completo)")
+st.title("📦 Pedidos AZZAS – XML → CSV")
 st.markdown(
     """
 Envie os **XMLs de pedido** (formato Arezzo) e o app irá:
 
-- Ler **todas** as informações disponíveis (cabeçalho, itens, grade, volumes)
-- Gerar tabelas consolidadas para cada tipo de dado
-- Permitir download em **CSV** para você filtrar/ajustar depois no Excel ou BI
-
-Na aba *Itens* também há um CSV **enxuto** com apenas as colunas pedidas, na ordem e com os nomes que você definiu.
+- Ler os itens de todos os pedidos enviados
+- Montar uma tabela única já no layout que você definiu
+- Permitir download em **pedidas_azzas.csv**
 """
 )
 
@@ -65,7 +63,7 @@ def parse_to_date(raw: str) -> str:
 
 
 def parse_arezzo_xml(file_obj):
-    """Parse a single Arezzo PO XML into multiple DataFrames."""
+    """Parse a single Arezzo PO XML. Retorna apenas os DataFrames, mas vamos usar só items aqui."""
     try:
         tree = ET.parse(file_obj)
     except ET.ParseError:
@@ -152,7 +150,7 @@ def parse_arezzo_xml(file_obj):
 
     df_items = pd.DataFrame(item_rows)
 
-    # ----------------- GRADE -----------------
+    # Grade / Volumes são ignorados na UI, mas mantidos aqui se precisar no futuro
     grade_rows = []
     grade_section = root.find("STATEMENT_GRADE_ITEM_PEDIDO_COMPRA/Grade_Item_Pedido_Compra")
     if grade_section is not None:
@@ -164,10 +162,8 @@ def parse_arezzo_xml(file_obj):
             except Exception:
                 row["QUANTIDADE_NUM"] = None
             grade_rows.append(row)
-
     df_grade = pd.DataFrame(grade_rows)
 
-    # ----------------- VOLUMES -----------------
     vol_rows = []
     vol_section = root.find("STATEMENT_ITEM_PEDIDO_COMPRA_VOLUMES/Item_Pedido_Compra_Volumes")
     if vol_section is not None:
@@ -179,7 +175,6 @@ def parse_arezzo_xml(file_obj):
             except Exception:
                 row["QUANTIDADE_NUM"] = None
             vol_rows.append(row)
-
     df_volumes = pd.DataFrame(vol_rows)
 
     return {
@@ -197,10 +192,7 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    all_headers = []
     all_items = []
-    all_grades = []
-    all_volumes = []
 
     for f in uploaded_files:
         st.write(f"📄 Processando: **{f.name}**")
@@ -208,176 +200,106 @@ if uploaded_files:
 
         if not parsed["items"].empty:
             st.success(f"{len(parsed['items'])} item(s) lido(s) em {f.name}")
+            all_items.append(parsed["items"])
         else:
             st.warning(f"Nenhum item encontrado em {f.name}")
 
-        if not parsed["header"].empty:
-            all_headers.append(parsed["header"])
-        if not parsed["items"].empty:
-            all_items.append(parsed["items"])
-        if not parsed["grade"].empty:
-            all_grades.append(parsed["grade"])
-        if not parsed["volumes"].empty:
-            all_volumes.append(parsed["volumes"])
-
-    # Concatena tudo por tipo
-    df_header_all = pd.concat(all_headers, ignore_index=True) if all_headers else pd.DataFrame()
     df_items_all = pd.concat(all_items, ignore_index=True) if all_items else pd.DataFrame()
-    df_grade_all = pd.concat(all_grades, ignore_index=True) if all_grades else pd.DataFrame()
-    df_volumes_all = pd.concat(all_volumes, ignore_index=True) if all_volumes else pd.DataFrame()
 
-    tab_itens, tab_grade, tab_volumes, tab_header = st.tabs(
-        ["🧾 Itens", "📏 Grade", "📦 Volumes", "📋 Cabeçalho"]
-    )
+    if not df_items_all.empty:
+        # Colunas fonte, com nomes originais do XML, na ordem desejada
+        simple_cols_src = [
+            "DT_EMISSAO",
+            "MARCA_IDO",
+            "NUM_PEDD_COMPRA",
+            "CD_ITEM_MATERIAL",
+            "DESC_PRODUTO",
+            "COR",
+            "DESC_CAT_PRODUTO",
+            "DESC_MODELO",
+            "CD_COLECAO",
+            "CD_LANCAMENTO",
+            "GRADE",
+            "TL_REQU",
+            "VALOR_UNIT_PRODUTO",
+            "CONDICAO_PAGTO",
+            "STATUS_ITEM_PEDD_DESC",
+        ]
 
-    # ---------- ITENS ----------
-    with tab_itens:
-        if not df_items_all.empty:
-            # Colunas fonte, com nomes originais do XML, na ordem desejada
-            simple_cols_src = [
-                "DT_EMISSAO",
-                "MARCA_IDO",
-                "NUM_PEDD_COMPRA",
-                "CD_ITEM_MATERIAL",
-                "DESC_PRODUTO",
-                "COR",
-                "DESC_CAT_PRODUTO",
-                "DESC_MODELO",
-                "CD_COLECAO",
-                "CD_LANCAMENTO",
-                "GRADE",
-                "TL_REQU",
-                "VALOR_UNIT_PRODUTO",
-                "CONDICAO_PAGTO",
-                "STATUS_ITEM_PEDD_DESC",
-            ]
-
-            # Garante que todas existem (caso algum XML venha diferente)
-            missing = [c for c in simple_cols_src if c not in df_items_all.columns]
-            if missing:
-                st.warning(
-                    "As seguintes colunas esperadas não foram encontradas em algum XML: "
-                    + ", ".join(missing)
-                )
-
-            available_cols = [c for c in simple_cols_src if c in df_items_all.columns]
-            df_simple = df_items_all[available_cols].copy()
-
-            # Renomear para bater exatamente com o que você pediu
-            df_simple = df_simple.rename(
-                columns={
-                    "DT_EMISSAO": "EMISSAO",
-                    "MARCA_IDO": "MARCA",
-                    "NUM_PEDD_COMPRA": "NUMERO PEDIDO",
-                    "CD_ITEM_MATERIAL": "SKU",
-                    "DESC_PRODUTO": "PRODUTO",
-                    "COR": "COR",
-                    "DESC_CAT_PRODUTO": "CATEGORIA",
-                    "DESC_MODELO": "TIPO",
-                    "CD_COLECAO": "COLECAO",
-                    "CD_LANCAMENTO": "LANCAMENTO",
-                    "GRADE": "GRADE",
-                    "TL_REQU": "QUANTIDADE",
-                    "VALOR_UNIT_PRODUTO": "PRECO",
-                    "CONDICAO_PAGTO": "PAGAMENTO",
-                    "STATUS_ITEM_PEDD_DESC": "STATUS PEDIDO",
-                }
+        missing = [c for c in simple_cols_src if c not in df_items_all.columns]
+        if missing:
+            st.warning(
+                "As seguintes colunas esperadas não foram encontradas em algum XML: "
+                + ", ".join(missing)
             )
 
-            # Ordem final garantida com os nomes novos
-            ordered_cols = [
-                "EMISSAO",
-                "MARCA",
-                "NUMERO PEDIDO",
-                "SKU",
-                "PRODUTO",
-                "COR",
-                "CATEGORIA",
-                "TIPO",
-                "COLECAO",
-                "LANCAMENTO",
-                "GRADE",
-                "QUANTIDADE",
-                "PRECO",
-                "PAGAMENTO",
-                "STATUS PEDIDO",
-            ]
-            df_simple = df_simple[ordered_cols]
+        available_cols = [c for c in simple_cols_src if c in df_items_all.columns]
+        df_simple = df_items_all[available_cols].copy()
 
-            st.subheader("Itens – colunas para integração (layout final)")
-            st.dataframe(df_simple, use_container_width=True)
+        # Renomear para os nomes finais que você definiu
+        df_simple = df_simple.rename(
+            columns={
+                "DT_EMISSAO": "EMISSAO",
+                "MARCA_IDO": "MARCA",
+                "NUM_PEDD_COMPRA": "NUMERO PEDIDO",
+                "CD_ITEM_MATERIAL": "SKU",
+                "DESC_PRODUTO": "PRODUTO",
+                "COR": "COR",
+                "DESC_CAT_PRODUTO": "CATEGORIA",
+                "DESC_MODELO": "TIPO",
+                "CD_COLECAO": "COLECAO",
+                "CD_LANCAMENTO": "LANCAMENTO",
+                "GRADE": "GRADE",
+                "TL_REQU": "QUANTIDADE",
+                "VALOR_UNIT_PRODUTO": "PRECO",
+                "CONDICAO_PAGTO": "PAGAMENTO",
+                "STATUS_ITEM_PEDD_DESC": "STATUS PEDIDO",
+            }
+        )
 
-            buf_simple = StringIO()
-            df_simple.to_csv(buf_simple, index=False, encoding="utf-8-sig")
+        # Ordem final garantida
+        ordered_cols = [
+            "EMISSAO",
+            "MARCA",
+            "NUMERO PEDIDO",
+            "SKU",
+            "PRODUTO",
+            "COR",
+            "CATEGORIA",
+            "TIPO",
+            "COLECAO",
+            "LANCAMENTO",
+            "GRADE",
+            "QUANTIDADE",
+            "PRECO",
+            "PAGAMENTO",
+            "STATUS PEDIDO",
+        ]
+        df_simple = df_simple[ordered_cols]
+
+        st.subheader("Itens – layout final (pedidas_azzas.csv)")
+        st.dataframe(df_simple, use_container_width=True)
+
+        buf_simple = StringIO()
+        df_simple.to_csv(buf_simple, index=False, encoding="utf-8-sig")
+        st.download_button(
+            "⬇️ Baixar CSV (pedidas_azzas.csv)",
+            data=buf_simple.getvalue(),
+            file_name="pedidas_azzas.csv",
+            mime="text/csv",
+        )
+
+        with st.expander("Ver dados completos de itens (debug opcional)"):
+            st.dataframe(df_items_all, use_container_width=True)
+            buf_full = StringIO()
+            df_items_all.to_csv(buf_full, index=False, encoding="utf-8-sig")
             st.download_button(
-                "⬇️ Baixar CSV de Itens (items_simple.csv)",
-                data=buf_simple.getvalue(),
-                file_name="pedidos_azzas.csv",
+                "⬇️ Baixar CSV completo de itens (items_full.csv)",
+                data=buf_full.getvalue(),
+                file_name="items_full.csv",
                 mime="text/csv",
             )
-
-            with st.expander("Ver todos os campos brutos de itens (debug)"):
-                st.dataframe(df_items_all, use_container_width=True)
-                buf_full = StringIO()
-                df_items_all.to_csv(buf_full, index=False, encoding="utf-8-sig")
-                st.download_button(
-                    "⬇️ Baixar CSV completo de Itens (items_full.csv)",
-                    data=buf_full.getvalue(),
-                    file_name="items_full.csv",
-                    mime="text/csv",
-                )
-        else:
-            st.info("Nenhum item encontrado nos XML enviados.")
-
-    # ---------- GRADE ----------
-    with tab_grade:
-        if not df_grade_all.empty:
-            st.subheader("Grade por Item")
-            st.dataframe(df_grade_all, use_container_width=True)
-
-            buf = StringIO()
-            df_grade_all.to_csv(buf, index=False, encoding="utf-8-sig")
-            st.download_button(
-                "⬇️ Baixar CSV de Grade (grade.csv)",
-                data=buf.getvalue(),
-                file_name="grade.csv",
-                mime="text/csv",
-            )
-        else:
-            st.info("Nenhuma informação de grade encontrada.")
-
-    # ---------- VOLUMES ----------
-    with tab_volumes:
-        if not df_volumes_all.empty:
-            st.subheader("Volumes por Item")
-            st.dataframe(df_volumes_all, use_container_width=True)
-
-            buf = StringIO()
-            df_volumes_all.to_csv(buf, index=False, encoding="utf-8-sig")
-            st.download_button(
-                "⬇️ Baixar CSV de Volumes (volumes.csv)",
-                data=buf.getvalue(),
-                file_name="volumes.csv",
-                mime="text/csv",
-            )
-        else:
-            st.info("Nenhuma informação de volumes encontrada.")
-
-    # ---------- CABEÇALHO ----------
-    with tab_header:
-        if not df_header_all.empty:
-            st.subheader("Cabeçalho por Pedido")
-            st.dataframe(df_header_all, use_container_width=True)
-
-            buf = StringIO()
-            df_header_all.to_csv(buf, index=False, encoding="utf-8-sig")
-            st.download_button(
-                "⬇️ Baixar CSV de Cabeçalho (header.csv)",
-                data=buf.getvalue(),
-                file_name="header.csv",
-                mime="text/csv",
-            )
-        else:
-            st.info("Nenhuma informação de cabeçalho encontrada.")
+    else:
+        st.info("Nenhum item válido foi encontrado nos XML enviados.")
 else:
     st.info("Envie um ou mais XMLs para começar.")
