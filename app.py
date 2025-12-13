@@ -15,6 +15,8 @@ Envie os **XMLs de pedido** (formato Arezzo) e o app irá:
 - Ler **todas** as informações disponíveis (cabeçalho, itens, grade, volumes)
 - Gerar tabelas consolidadas para cada tipo de dado
 - Permitir download em **CSV** para você filtrar/ajustar depois no Excel ou BI
+
+Na aba *Itens* também há um CSV **enxuto** com apenas as colunas pedidas.
 """
 )
 
@@ -42,7 +44,6 @@ def parse_to_date(raw: str) -> str:
 
     # Plain numeric YYYYMMDD or DDMMYYYY
     if re.fullmatch(r"\d{8}", raw):
-        # Try YYYYMMDD
         for fmt in ("%Y%m%d", "%d%m%Y"):
             try:
                 dt = datetime.strptime(raw, fmt)
@@ -117,7 +118,7 @@ def parse_arezzo_xml(file_obj):
                 "PERIODO_ENTREGA_RAW",
                 "DT_EMISSAO",
                 "DT_EMISSAO_RAW",
-                "MARCA_IDO",  # já existe no item, mas garantimos consistência
+                "MARCA_IDO",
             ]:
                 if key in header_map and key not in row:
                     row[key] = header_map.get(key, "")
@@ -232,17 +233,67 @@ if uploaded_files:
     # ---------- ITENS ----------
     with tab_itens:
         if not df_items_all.empty:
-            st.subheader("Itens (com todos os campos)")
-            st.dataframe(df_items_all, use_container_width=True)
+            # Colunas fonte, com nomes originais do XML
+            simple_cols_src = [
+                "NUM_PEDD_COMPRA",
+                "CENTRO_LOGISTICO",
+                "CD_ITEM_MATERIAL",
+                "DESC_PRODUTO",
+                "DESC_CAT_PRODUTO",
+                "DESC_MODELO",
+                "MARCA_IDO",
+                "CD_COLECAO",
+                "CD_LANCAMENTO",
+                "VALOR_UNIT_PRODUTO",
+                "GRADE",
+                "TL_REQU",
+                "CONDICAO_PAGTO",
+                "DT_EMISSAO",
+                "STATUS_ITEM_PEDD_DESC",
+                "COR",
+            ]
 
-            buf = StringIO()
-            df_items_all.to_csv(buf, index=False, encoding="utf-8-sig")
+            # Garante que todas existem (caso algum XML venha diferente)
+            missing = [c for c in simple_cols_src if c not in df_items_all.columns]
+            if missing:
+                st.warning(
+                    "As seguintes colunas esperadas não foram encontradas em algum XML: "
+                    + ", ".join(missing)
+                )
+
+            available_cols = [c for c in simple_cols_src if c in df_items_all.columns]
+            df_simple = df_items_all[available_cols].copy()
+
+            # Renomear para bater exatamente com o que você pediu
+            df_simple = df_simple.rename(
+                columns={
+                    "CENTRO_LOGISTICO": "CENTRO LOGISTICO",
+                    "CD_LANCAMENTO": "CD LANCAMENTO",
+                }
+            )
+
+            st.subheader("Itens – colunas selecionadas para integração")
+            st.dataframe(df_simple, use_container_width=True)
+
+            buf_simple = StringIO()
+            df_simple.to_csv(buf_simple, index=False, encoding="utf-8-sig")
             st.download_button(
-                "⬇️ Baixar CSV de Itens (items.csv)",
-                data=buf.getvalue(),
-                file_name="items.csv",
+                "⬇️ Baixar CSV de Itens (items_simple.csv)",
+                data=buf_simple.getvalue(),
+                file_name="items_simple.csv",
                 mime="text/csv",
             )
+
+            with st.expander("Ver todos os campos brutos de itens (debug)"):
+                st.dataframe(df_items_all, use_container_width=True)
+                buf_full = StringIO()
+                df_items_all.to_csv(buf_full, index=False, encoding="utf-8-sig")
+                st.download_button(
+                    "⬇️ Baixar CSV completo de Itens (items_full.csv)",
+                    data=buf_full.getvalue(),
+                    file_name="items_full.csv",
+                    mime="text/csv",
+                )
         else:
             st.info("Nenhum item encontrado nos XML enviados.")
 
