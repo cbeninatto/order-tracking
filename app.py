@@ -312,7 +312,7 @@ if uploaded_files:
             st.download_button(
                 "⬇️ Baixar CSV de Itens (items_simple.csv)",
                 data=buf_simple.getvalue(),
-                file_name="items_simple.csv",
+                file_name="pedidos_azzas.csv",
                 mime="text/csv",
             )
 
