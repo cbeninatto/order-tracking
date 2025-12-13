@@ -16,7 +16,7 @@ Envie os **XMLs de pedido** (formato Arezzo) e o app irá:
 - Gerar tabelas consolidadas para cada tipo de dado
 - Permitir download em **CSV** para você filtrar/ajustar depois no Excel ou BI
 
-Na aba *Itens* também há um CSV **enxuto** com apenas as colunas pedidas.
+Na aba *Itens* também há um CSV **enxuto** com apenas as colunas pedidas, na ordem e com os nomes que você definiu.
 """
 )
 
@@ -233,24 +233,23 @@ if uploaded_files:
     # ---------- ITENS ----------
     with tab_itens:
         if not df_items_all.empty:
-            # Colunas fonte, com nomes originais do XML
+            # Colunas fonte, com nomes originais do XML, na ordem desejada
             simple_cols_src = [
+                "DT_EMISSAO",
+                "MARCA_IDO",
                 "NUM_PEDD_COMPRA",
-                "CENTRO_LOGISTICO",
                 "CD_ITEM_MATERIAL",
                 "DESC_PRODUTO",
+                "COR",
                 "DESC_CAT_PRODUTO",
                 "DESC_MODELO",
-                "MARCA_IDO",
                 "CD_COLECAO",
                 "CD_LANCAMENTO",
-                "VALOR_UNIT_PRODUTO",
                 "GRADE",
                 "TL_REQU",
+                "VALOR_UNIT_PRODUTO",
                 "CONDICAO_PAGTO",
-                "DT_EMISSAO",
                 "STATUS_ITEM_PEDD_DESC",
-                "COR",
             ]
 
             # Garante que todas existem (caso algum XML venha diferente)
@@ -267,12 +266,45 @@ if uploaded_files:
             # Renomear para bater exatamente com o que você pediu
             df_simple = df_simple.rename(
                 columns={
-                    "CENTRO_LOGISTICO": "CENTRO LOGISTICO",
-                    "CD_LANCAMENTO": "CD LANCAMENTO",
+                    "DT_EMISSAO": "EMISSAO",
+                    "MARCA_IDO": "MARCA",
+                    "NUM_PEDD_COMPRA": "NUMERO PEDIDO",
+                    "CD_ITEM_MATERIAL": "SKU",
+                    "DESC_PRODUTO": "PRODUTO",
+                    "COR": "COR",
+                    "DESC_CAT_PRODUTO": "CATEGORIA",
+                    "DESC_MODELO": "TIPO",
+                    "CD_COLECAO": "COLECAO",
+                    "CD_LANCAMENTO": "LANCAMENTO",
+                    "GRADE": "GRADE",
+                    "TL_REQU": "QUANTIDADE",
+                    "VALOR_UNIT_PRODUTO": "PRECO",
+                    "CONDICAO_PAGTO": "PAGAMENTO",
+                    "STATUS_ITEM_PEDD_DESC": "STATUS PEDIDO",
                 }
             )
 
-            st.subheader("Itens – colunas selecionadas para integração")
+            # Ordem final garantida com os nomes novos
+            ordered_cols = [
+                "EMISSAO",
+                "MARCA",
+                "NUMERO PEDIDO",
+                "SKU",
+                "PRODUTO",
+                "COR",
+                "CATEGORIA",
+                "TIPO",
+                "COLECAO",
+                "LANCAMENTO",
+                "GRADE",
+                "QUANTIDADE",
+                "PRECO",
+                "PAGAMENTO",
+                "STATUS PEDIDO",
+            ]
+            df_simple = df_simple[ordered_cols]
+
+            st.subheader("Itens – colunas para integração (layout final)")
             st.dataframe(df_simple, use_container_width=True)
 
             buf_simple = StringIO()
